@@ -23,10 +23,14 @@ package main
 
 import (
 	"context"
+	"expvar"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/rawkv"
 	"log"
+	"math"
 	"net"
+	"strconv"
+	"strings"
 
 	"google.golang.org/grpc"
 	pb "roykv-for-tikv/tikv"
@@ -57,9 +61,10 @@ func (s *tikvServer) Del(ctx context.Context, in *pb.DelRequest) (*pb.DelReply, 
 	for _, key := range in.Keys {
 		errDelete := rawKvClient.Delete(context.TODO(), []byte(key))
 		if errDelete != nil {
-			panic(errDelete)
+			log.Println(errDelete)
+		} else {
+			deleted++
 		}
-		deleted++
 	}
 
 	return &pb.DelReply{Deleted: deleted}, nil
@@ -67,26 +72,236 @@ func (s *tikvServer) Del(ctx context.Context, in *pb.DelRequest) (*pb.DelReply, 
 
 // Set implements roykvtikv.tikvServer
 func (s *tikvServer) Set(ctx context.Context, in *pb.SetRequest) (*pb.SetReply, error) {
-	//todo
-	return &pb.SetReply{Result: true}, nil
+	var result bool
+
+	errPut := rawKvClient.Put(context.TODO(), []byte(in.GetKey()), []byte(in.GetValue()))
+	if errPut != nil {
+		log.Println(errPut)
+		result = false
+	} else {
+		result = true
+	}
+	return &pb.SetReply{Result: result}, nil
 }
 
 // Get implements roykvtikv.tikvServer
 func (s *tikvServer) Get(ctx context.Context, in *pb.GetRequest) (*pb.GetReply, error) {
-	//todo
-	return &pb.GetReply{Value: "bar"}, nil
+	var value string
+	value = ""
+
+	byteVal, errGet := rawKvClient.Get(context.TODO(), []byte(in.GetKey()))
+	if errGet != nil {
+		log.Println(errGet)
+	} else {
+		if byteVal != nil {
+			value = string(byteVal)
+		}
+	}
+
+	return &pb.GetReply{Value: value}, nil
 }
 
 // Exist implements roykvtikv.tikvServer
 func (s *tikvServer) Exist(ctx context.Context, in *pb.ExistRequest) (*pb.ExistReply, error) {
-	//todo
-	return &pb.ExistReply{Existed: true}, nil
+	var existed bool
+
+	byteVal, errGet := rawKvClient.Get(context.TODO(), []byte(in.GetKey()))
+
+	if errGet != nil {
+		log.Println(errGet)
+		existed = false
+	} else {
+		existed = byteVal != nil
+	}
+
+	return &pb.ExistReply{Existed: existed}, nil
 }
 
 // Scan implements roykvtikv.tikvServer
 func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanReply, error) {
-	//todo
-	return &pb.ScanReply{Data: []*pb.KVEntry{&pb.KVEntry{Key:"foo", Value:"bar"}}}, nil
+	var data []*pb.KVEntry
+
+	var startKey string
+	startKey = in.GetStartKey()
+	var startKeyType string
+	startKeyType = in.GetStartKeyType()
+	var endKey string
+	endKey = in.GetEndKey()
+	var endKeyType string
+	endKeyType = in.GetEndKeyType()
+	var keyPrefix string
+	keyPrefix = in.GetKeyPrefix()
+
+	var limit uint64
+	limit = in.GetLimit()
+
+	var count uint64
+	count = 0
+
+	var lastKey string
+	lastKey = ""
+	var skipFirst bool
+	skipFirst = false
+
+	for ;count < limit; {
+		var listKey [][]byte
+		var listVal [][]byte
+		var errScan error
+
+		if !skipFirst {
+			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(startKey), []byte(endKey), int(limit))
+			if errScan != nil {
+				log.Println(errScan)
+			}
+		} else {
+			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(lastKey), []byte(endKey), int(limit))
+			if errScan != nil {
+				log.Println(errScan)
+			}
+		}
+
+		if skipFirst {
+			if len(listKey) <= 0 {
+				break
+			}
+		} else {
+			if len(listKey) <= 1 {
+				break
+			}
+		}
+
+		for i, byteKey := range listKey {
+			if skipFirst {
+				if i == 0 {
+					continue
+				}
+			}
+
+			var key string
+			key = string(byteKey)
+
+			lastKey = key
+			skipFirst = true
+
+			if strings.HasPrefix(key, keyPrefix) {
+				var matched bool
+				matched = true
+
+				var realKey string
+				realKey = key[len(keyPrefix) :]
+
+				if len(startKey) > 0 {
+					var realStartKey string
+					realStartKey = startKey[len(keyPrefix) :]
+
+					if startKeyType == "integer" {
+						var errAtoi error
+						var realKeyInt int
+						var realStartKeyInt int
+						realKeyInt, errAtoi = strconv.Atoi(realKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						realStartKeyInt, errAtoi = strconv.Atoi(realStartKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyInt < realStartKeyInt {
+								matched = false
+							}
+						}
+					} else if startKeyType == "double" {
+						var errParseDouble error
+						var realKeyDouble float64
+						var realStartKeyDouble float64
+						realKeyDouble, errParseDouble = strconv.ParseFloat(realKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						realStartKeyDouble, errParseDouble = strconv.ParseFloat(realStartKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyDouble < realStartKeyDouble {
+								matched = false
+							}
+						}
+					}
+				}
+				if len(endKey) > 0 {
+					var realEndKey string
+					realEndKey = endKey[len(keyPrefix) :]
+
+					if endKeyType == "integer" {
+						var errAtoi error
+						var realKeyInt int
+						var realEndKeyInt int
+						realKeyInt, errAtoi = strconv.Atoi(realKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						realEndKeyInt, errAtoi = strconv.Atoi(realEndKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyInt < realEndKeyInt {
+								matched = false
+							}
+						}
+					} else if endKeyType == "double" {
+						var errParseDouble error
+						var realKeyDouble float64
+						var realEndKeyDouble float64
+						realKeyDouble, errParseDouble = strconv.ParseFloat(realKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						realEndKeyDouble, errParseDouble = strconv.ParseFloat(realEndKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyDouble < realEndKeyDouble {
+								matched = false
+							}
+						}
+					}
+				}
+
+				if matched {
+					data = append(data, &pb.KVEntry{Key:key, Value:string(listVal[i])})
+					count++
+					if count >= limit {
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if (count < limit) && (len(endKey) > 0) {
+		lastValue, errGet := rawKvClient.Get(context.TODO(), []byte(endKey))
+		if errGet != nil {
+			log.Println(errGet)
+		} else {
+			if lastValue != nil {
+				data = append(data, &pb.KVEntry{Key:endKey, Value:string(lastValue)})
+			}
+		}
+	}
+
+	return &pb.ScanReply{Data: data}, nil
 }
 
 // MGet implements roykvtikv.tikvServer
