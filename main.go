@@ -33,12 +33,13 @@ import (
 )
 
 const (
-	port = ":50055"
+	port = ":50055" //fetch grpc port from options
 )
 
 var rawKvClient *rawkv.Client
 
 func getRawKvClient() *rawkv.Client {
+	//todo fetch pd address from options
 	cli, err := rawkv.NewClient(context.TODO(), []string{"47.110.155.53:32814", "47.110.155.53:32816", "47.110.155.53:32818"}, config.Default())
 	if err != nil {
 		panic(err)
@@ -51,8 +52,17 @@ type tikvServer struct{}
 
 // Del implements roykvtikv.tikvServer
 func (s *tikvServer) Del(ctx context.Context, in *pb.DelRequest) (*pb.DelReply, error) {
-	//todo
-	return &pb.DelReply{Deleted: 1}, nil
+	var deleted uint64
+
+	for _, key := range in.Keys {
+		errDelete := rawKvClient.Delete(context.TODO(), []byte(key))
+		if errDelete != nil {
+			panic(errDelete)
+		}
+		deleted++
+	}
+
+	return &pb.DelReply{Deleted: deleted}, nil
 }
 
 // Set implements roykvtikv.tikvServer
