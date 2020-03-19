@@ -394,7 +394,79 @@ func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetA
 // Count implements roykvtikv.tikvServer
 func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountReply, error) {
 	//todo
-	return &pb.CountReply{Count: 1}, nil
+
+	var startKey string
+	startKey = in.GetStartKey()
+	var endKey string
+	endKey = in.GetEndKey()
+	var keyPrefix string
+	keyPrefix = in.GetKeyPrefix()
+
+	var count uint64
+	count = 0
+
+	var lastKey string
+	lastKey = ""
+	var skipFirst bool
+	skipFirst = false
+
+	for ;true; {
+		var listKey [][]byte
+		var errScan error
+
+		if !skipFirst {
+			listKey, _, errScan = rawKvClient.Scan(context.TODO(), []byte(startKey), []byte(endKey), 10000)
+			if errScan != nil {
+				log.Println(errScan)
+			}
+		} else {
+			listKey, _, errScan = rawKvClient.Scan(context.TODO(), []byte(lastKey), []byte(endKey), 10000)
+			if errScan != nil {
+				log.Println(errScan)
+			}
+		}
+
+		if skipFirst {
+			if len(listKey) <= 0 {
+				break
+			}
+		} else {
+			if len(listKey) <= 1 {
+				break
+			}
+		}
+
+		for i, byteKey := range listKey {
+			if skipFirst {
+				if i == 0 {
+					continue
+				}
+			}
+
+			var key string
+			key = string(byteKey)
+
+			lastKey = key
+			skipFirst = true
+
+			if strings.HasPrefix(key, keyPrefix) {
+				count++
+			}
+		}
+	}
+
+	if len(endKey) > 0 {
+		lastValue, errGet := rawKvClient.Get(context.TODO(), []byte(endKey))
+		if errGet != nil {
+			log.Println(errGet)
+		} else {
+			if lastValue != nil {
+				count++
+			}
+		}
+	}
+
+	return &pb.CountReply{Count: count}, nil
 }
 
 func main() {
