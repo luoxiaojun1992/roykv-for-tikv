@@ -23,6 +23,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/rawkv"
 	"log"
@@ -117,6 +118,7 @@ func (s *tikvServer) Exist(ctx context.Context, in *pb.ExistRequest) (*pb.ExistR
 
 // Scan implements roykvtikv.tikvServer
 func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanReply, error) {
+	//todo bugfix
 	var data []*pb.KVEntry
 	data = []*pb.KVEntry{}
 
