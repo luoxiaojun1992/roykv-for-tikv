@@ -23,11 +23,9 @@ package main
 
 import (
 	"context"
-	"expvar"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/rawkv"
 	"log"
-	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -120,6 +118,7 @@ func (s *tikvServer) Exist(ctx context.Context, in *pb.ExistRequest) (*pb.ExistR
 // Scan implements roykvtikv.tikvServer
 func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanReply, error) {
 	var data []*pb.KVEntry
+	data = []*pb.KVEntry{}
 
 	var startKey string
 	startKey = in.GetStartKey()
@@ -306,19 +305,89 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 
 // MGet implements roykvtikv.tikvServer
 func (s *tikvServer) MGet(ctx context.Context, in *pb.MGetRequest) (*pb.MGetReply, error) {
-	//todo
 	var data map[string]string
 	data = make(map[string]string)
-	data["foo"] = "bar"
+
+	var byteKeys [][]byte
+	byteKeys = [][]byte{}
+	for _, key := range in.Keys {
+		byteKeys = append(byteKeys, []byte(key))
+	}
+
+	byteVals, errBGet := rawKvClient.BatchGet(context.TODO(), byteKeys)
+	if errBGet != nil {
+		log.Println(errBGet)
+	} else {
+		for i, byteVal := range byteVals {
+			if byteVal != nil {
+				data[string(byteKeys[i])] = string(byteVal)
+			}
+		}
+	}
+
 	return &pb.MGetReply{Data: data}, nil
 }
 
 // GetAll implements roykvtikv.tikvServer
 func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetAllReply, error) {
-	//todo
 	var data map[string]string
 	data = make(map[string]string)
-	data["foo"] = "bar"
+
+	var keyPrefix string
+	keyPrefix = ""
+
+	var lastKey string
+	lastKey = ""
+
+	var skipFirst bool
+	skipFirst = false
+
+	for ;true; {
+		var listKey [][]byte
+		var listVal [][]byte
+		var errScan error
+
+		if !skipFirst {
+			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(""), []byte(""), 10000)
+			if errScan != nil {
+				log.Println(errScan)
+			}
+		} else {
+			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(lastKey), []byte(""), 10000)
+			if errScan != nil {
+				log.Println(errScan)
+			}
+		}
+
+		if skipFirst {
+			if len(listKey) <= 0 {
+				break
+			}
+		} else {
+			if len(listKey) <= 1 {
+				break
+			}
+		}
+
+		for i, byteKey := range listKey {
+			if skipFirst {
+				if i == 0 {
+					continue
+				}
+			}
+
+			var key string
+			key = string(byteKey)
+
+			lastKey = key
+			skipFirst = true
+
+			if strings.HasPrefix(key, keyPrefix) {
+				data[key] = string(listVal[i])
+			}
+		}
+	}
+
 	return &pb.GetAllReply{Data: data}, nil
 }
 
