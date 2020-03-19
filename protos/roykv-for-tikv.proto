@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package roykvtikv;
+
+service TiKV {
+  rpc Set (SetRequest) returns (SetReply) {}
+  rpc Get (GetRequest) returns (GetReply) {}
+  rpc Exist (ExistRequest) returns (ExistReply) {}
+  rpc Scan (ScanRequest) returns (ScanReply) {}
+  rpc MGet (MGetRequest) returns (MGetReply) {}
+  rpc GetAll (GetAllRequest) returns (GetAllReply) {}
+  rpc Count (CountRequest) returns (CountReply) {}
+  rpc Del (DelRequest) returns (DelReply) {}
+}
+
+message SetRequest {
+  string key = 1;
+  string value = 2;
+}
+
+message SetReply {
+  bool result = 1;
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetReply {
+  string value = 1;
+}
+
+message ExistRequest {
+  string key = 1;
+}
+
+message ExistReply {
+  bool existed = 1;
+}
+
+message ScanRequest {
+  string startKey = 1;
+  string startKeyType = 2;
+  string endKey = 3;
+  string endKeyType = 4;
+  string keyPrefix = 5;
+  uint64 limit = 6;
+}
+
+message KVEntry {
+  string key = 1;
+  string value = 2;
+}
+
+message ScanReply {
+  repeated KVEntry data = 1;
+}
+
+message MGetRequest {
+  repeated string keys = 1;
+}
+
+message MGetReply {
+  map<string, string> data = 1;
+}
+
+message GetAllRequest {
+  string keyPrefix = 1;
+}
+
+message GetAllReply {
+  map<string, string> data = 1;
+}
+
+message CountRequest {
+  string startKey = 1;
+  string endKey = 2;
+  string keyPrefix = 3;
+}
+
+message CountReply {
+  uint64 count = 1;
+}
+
+message DelRequest {
+  repeated string keys = 1;
+}
+
+message DelReply {
+  uint64 deleted = 1;
+}
