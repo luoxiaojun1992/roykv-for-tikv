@@ -23,7 +23,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/rawkv"
 	"log"
