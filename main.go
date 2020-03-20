@@ -23,7 +23,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/rawkv"
 	"log"
@@ -162,11 +161,11 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 		}
 
 		if skipFirst {
-			if len(listKey) <= 0 {
+			if len(listKey) <= 1 {
 				break
 			}
 		} else {
-			if len(listKey) <= 1 {
+			if len(listKey) <= 0 {
 				break
 			}
 		}
@@ -191,7 +190,7 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 				var realKey string
 				realKey = key[len(keyPrefix) :]
 
-				if len(startKey) > 0 {
+				if len(startKey[len(keyPrefix) :]) > 0 {
 					var realStartKey string
 					realStartKey = startKey[len(keyPrefix) :]
 
@@ -254,7 +253,7 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 						}
 
 						if matched {
-							if realKeyInt < realEndKeyInt {
+							if realKeyInt > realEndKeyInt {
 								matched = false
 							}
 						}
@@ -273,7 +272,7 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 						}
 
 						if matched {
-							if realKeyDouble < realEndKeyDouble {
+							if realKeyDouble > realEndKeyDouble {
 								matched = false
 							}
 						}
@@ -362,11 +361,11 @@ func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetA
 		}
 
 		if skipFirst {
-			if len(listKey) <= 0 {
+			if len(listKey) <= 1 {
 				break
 			}
 		} else {
-			if len(listKey) <= 1 {
+			if len(listKey) <= 0 {
 				break
 			}
 		}
@@ -429,11 +428,11 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 		}
 
 		if skipFirst {
-			if len(listKey) <= 0 {
+			if len(listKey) <= 1 {
 				break
 			}
 		} else {
-			if len(listKey) <= 1 {
+			if len(listKey) <= 0 {
 				break
 			}
 		}
