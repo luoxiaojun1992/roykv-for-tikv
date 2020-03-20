@@ -148,13 +148,25 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 		var listVal [][]byte
 		var errScan error
 
+		var scanStartString string
+		scanStartString = keyPrefix
+		var scanEndString string
+		scanEndString = ""
+
+		if startKeyType == "string" {
+			scanStartString = startKey
+		}
+		if endKeyType == "string" {
+			scanEndString = endKey
+		}
+
 		if !skipFirst {
-			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(startKey), []byte(endKey), int(limit))
+			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(scanStartString), []byte(scanEndString), int(limit))
 			if errScan != nil {
 				log.Println(errScan)
 			}
 		} else {
-			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(lastKey), []byte(endKey), int(limit))
+			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(lastKey), []byte(scanEndString), int(limit))
 			if errScan != nil {
 				log.Println(errScan)
 			}
@@ -335,7 +347,7 @@ func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetA
 	data = make(map[string]string)
 
 	var keyPrefix string
-	keyPrefix = ""
+	keyPrefix = in.GetKeyPrefix()
 
 	var lastKey string
 	lastKey = ""
@@ -349,7 +361,7 @@ func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetA
 		var errScan error
 
 		if !skipFirst {
-			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(""), []byte(""), 10000)
+			listKey, listVal, errScan = rawKvClient.Scan(context.TODO(), []byte(keyPrefix), []byte(""), 10000)
 			if errScan != nil {
 				log.Println(errScan)
 			}
@@ -394,12 +406,14 @@ func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetA
 
 // Count implements roykvtikv.tikvServer
 func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountReply, error) {
-	//todo
-
 	var startKey string
 	startKey = in.GetStartKey()
+	var startKeyType string
+	startKeyType = in.GetStartKeyType()
 	var endKey string
 	endKey = in.GetEndKey()
+	var endKeyType string
+	endKeyType = in.GetEndKeyType()
 	var keyPrefix string
 	keyPrefix = in.GetKeyPrefix()
 
@@ -415,13 +429,25 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 		var listKey [][]byte
 		var errScan error
 
+		var scanStartString string
+		scanStartString = keyPrefix
+		var scanEndString string
+		scanEndString = ""
+
+		if startKeyType == "string" {
+			scanStartString = startKey
+		}
+		if endKeyType == "string" {
+			scanEndString = endKey
+		}
+
 		if !skipFirst {
-			listKey, _, errScan = rawKvClient.Scan(context.TODO(), []byte(startKey), []byte(endKey), 10000)
+			listKey, _, errScan = rawKvClient.Scan(context.TODO(), []byte(scanStartString), []byte(scanEndString), 10000)
 			if errScan != nil {
 				log.Println(errScan)
 			}
 		} else {
-			listKey, _, errScan = rawKvClient.Scan(context.TODO(), []byte(lastKey), []byte(endKey), 10000)
+			listKey, _, errScan = rawKvClient.Scan(context.TODO(), []byte(lastKey), []byte(scanEndString), 10000)
 			if errScan != nil {
 				log.Println(errScan)
 			}
@@ -451,7 +477,104 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 			skipFirst = true
 
 			if strings.HasPrefix(key, keyPrefix) {
-				count++
+				var matched bool
+				matched = true
+
+				var realKey string
+				realKey = key[len(keyPrefix) :]
+
+				if len(startKey[len(keyPrefix) :]) > 0 {
+					var realStartKey string
+					realStartKey = startKey[len(keyPrefix) :]
+
+					if startKeyType == "integer" {
+						var errAtoi error
+						var realKeyInt int
+						var realStartKeyInt int
+						realKeyInt, errAtoi = strconv.Atoi(realKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						realStartKeyInt, errAtoi = strconv.Atoi(realStartKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyInt < realStartKeyInt {
+								matched = false
+							}
+						}
+					} else if startKeyType == "double" {
+						var errParseDouble error
+						var realKeyDouble float64
+						var realStartKeyDouble float64
+						realKeyDouble, errParseDouble = strconv.ParseFloat(realKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						realStartKeyDouble, errParseDouble = strconv.ParseFloat(realStartKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyDouble < realStartKeyDouble {
+								matched = false
+							}
+						}
+					}
+				}
+				if len(endKey) > 0 {
+					var realEndKey string
+					realEndKey = endKey[len(keyPrefix) :]
+
+					if endKeyType == "integer" {
+						var errAtoi error
+						var realKeyInt int
+						var realEndKeyInt int
+						realKeyInt, errAtoi = strconv.Atoi(realKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						realEndKeyInt, errAtoi = strconv.Atoi(realEndKey)
+						if errAtoi != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyInt > realEndKeyInt {
+								matched = false
+							}
+						}
+					} else if endKeyType == "double" {
+						var errParseDouble error
+						var realKeyDouble float64
+						var realEndKeyDouble float64
+						realKeyDouble, errParseDouble = strconv.ParseFloat(realKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						realEndKeyDouble, errParseDouble = strconv.ParseFloat(realEndKey, 64)
+						if errParseDouble != nil {
+							matched = false
+						}
+
+						if matched {
+							if realKeyDouble > realEndKeyDouble {
+								matched = false
+							}
+						}
+					}
+				}
+
+				if matched {
+					count++
+				}
 			}
 		}
 	}
