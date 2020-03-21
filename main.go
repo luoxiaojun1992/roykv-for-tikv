@@ -137,7 +137,9 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 		if errGet != nil {
 			log.Println(errGet)
 		} else {
-			data = append(data, &pb.KVEntry{Key:startKey, Value:string(byteVal)})
+			if byteVal != nil {
+				data = append(data, &pb.KVEntry{Key: startKey, Value: string(byteVal)})
+			}
 		}
 
 		return &pb.ScanReply{Data: data}, nil
@@ -431,7 +433,19 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 	var count uint64
 	count = 0
 
-	//todo optimization when start key equals end key
+	//optimization when start key equals end key
+	if (startKey == endKey) && endKey != "" {
+		byteVal, errGet := rawKvClient.Get(context.TODO(), []byte(startKey))
+		if errGet != nil {
+			log.Println(errGet)
+		} else {
+			if byteVal != nil {
+				count++
+			}
+		}
+
+		return &pb.CountReply{Count: count}, nil
+	}
 
 	var lastKey string
 	lastKey = ""
