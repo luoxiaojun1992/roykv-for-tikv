@@ -132,6 +132,8 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 	var keyPrefix string
 	keyPrefix = in.GetKeyPrefix()
 
+	//todo optimization when start key equals end key
+
 	var limit uint64
 	limit = in.GetLimit()
 
@@ -419,6 +421,8 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 
 	var count uint64
 	count = 0
+
+	//todo optimization when start key equals end key
 
 	var lastKey string
 	lastKey = ""
