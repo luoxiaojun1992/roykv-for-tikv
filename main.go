@@ -117,7 +117,6 @@ func (s *tikvServer) Exist(ctx context.Context, in *pb.ExistRequest) (*pb.ExistR
 
 // Scan implements roykvtikv.tikvServer
 func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanReply, error) {
-	//todo bugfix
 	var data []*pb.KVEntry
 	data = []*pb.KVEntry{}
 
@@ -132,7 +131,17 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 	var keyPrefix string
 	keyPrefix = in.GetKeyPrefix()
 
-	//todo optimization when start key equals end key
+	//optimization when start key equals end key
+	if (startKey == endKey) && endKey != "" {
+		byteVal, errGet := rawKvClient.Get(context.TODO(), []byte(startKey))
+		if errGet != nil {
+			log.Println(errGet)
+		} else {
+			data = append(data, &pb.KVEntry{Key:startKey, Value:string(byteVal)})
+		}
+
+		return &pb.ScanReply{Data: data}, nil
+	}
 
 	var limit uint64
 	limit = in.GetLimit()
