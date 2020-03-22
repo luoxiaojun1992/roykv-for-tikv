@@ -25,7 +25,6 @@ import (
 	"context"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/rawkv"
-	"github.com/tikv/client-go/txnkv"
 	"log"
 	"net"
 	"strconv"
@@ -41,20 +40,9 @@ const (
 
 var rawKvClient *rawkv.Client
 
-var txnKvClient *txnkv.Client
-
 func getRawKvClient() *rawkv.Client {
 	//todo fetch pd address from options
 	cli, err := rawkv.NewClient(context.TODO(), []string{"47.110.155.53:32814", "47.110.155.53:32816", "47.110.155.53:32818"}, config.Default())
-	if err != nil {
-		panic(err)
-	}
-	return cli
-}
-
-func getTxnKvClient() *txnkv.Client {
-	//todo fetch pd address from options
-	cli, err := txnkv.NewClient(context.TODO(), []string{"47.110.155.53:32814", "47.110.155.53:32816", "47.110.155.53:32818"}, config.Default())
 	if err != nil {
 		panic(err)
 	}
@@ -632,46 +620,9 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 	return &pb.CountReply{Count: count}, nil
 }
 
-func (s *tikvServer) Begin(ctx context.Context, in *pb.BeginRequest) (*pb.BeginReply, error) {
-	ts, errTs := txnKvClient.GetTS(context.TODO())
-	if errTs != nil {
-		log.Println(errTs)
-	} else {
-		_ = txnKvClient.BeginWithTS(context.TODO(), ts)
-		return &pb.BeginReply{Ts:ts}, nil
-	}
-
-	return &pb.BeginReply{Ts:0}, nil
-}
-
-func (s *tikvServer) Commit(ctx context.Context, in *pb.CommitRequest) (*pb.CommitReply, error) {
-	errCommit := txnKvClient.BeginWithTS(context.TODO(), in.Ts).Commit(context.TODO())
-	if errCommit != nil {
-		log.Println(errCommit)
-	} else {
-		return &pb.CommitReply{Result:true}, nil
-	}
-
-	return &pb.CommitReply{Result:false}, nil
-}
-
-func (s *tikvServer) Rollback(ctx context.Context, in *pb.RollbackRequest) (*pb.RollbackReply, error) {
-	errRollback := txnKvClient.BeginWithTS(context.TODO(), in.Ts).Rollback()
-	if errRollback != nil {
-		log.Println(errRollback)
-	} else {
-		return &pb.RollbackReply{Result:true}, nil
-	}
-
-	return &pb.RollbackReply{Result:false}, nil
-}
-
 func main() {
 	rawKvClient = getRawKvClient()
 	defer rawKvClient.Close()
-
-	txnKvClient = getTxnKvClient()
-	defer txnKvClient.Close()
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {

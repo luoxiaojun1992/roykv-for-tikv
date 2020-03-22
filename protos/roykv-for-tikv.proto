@@ -11,9 +11,6 @@ service TiKV {
   rpc GetAll (GetAllRequest) returns (GetAllReply) {}
   rpc Count (CountRequest) returns (CountReply) {}
   rpc Del (DelRequest) returns (DelReply) {}
-  rpc Begin (BeginRequest) returns (BeginReply) {}
-  rpc Commit (CommitRequest) returns (CommitReply) {}
-  rpc Rollback (RollbackRequest) returns (RollbackReply) {}
 }
 
 message SetRequest {
@@ -93,28 +90,4 @@ message DelRequest {
 
 message DelReply {
   uint64 deleted = 1;
-}
-
-message BeginRequest {
-
-}
-
-message BeginReply {
-  uint64 ts = 1;
-}
-
-message CommitRequest {
-  uint64 ts = 1;
-}
-
-message CommitReply {
-  bool result = 1;
-}
-
-message RollbackRequest {
-  uint64 ts = 1;
-}
-
-message RollbackReply {
-  bool result = 1;
 }
