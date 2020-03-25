@@ -162,13 +162,10 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 		var errScan error
 
 		var scanStartString string
-		scanStartString = keyPrefix
+		scanStartString = startKey
 		var scanEndString string
 		scanEndString = ""
 
-		if startKeyType == "string" {
-			scanStartString = startKey
-		}
 		if endKeyType == "string" {
 			scanEndString = endKey
 		}
@@ -457,13 +454,10 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 		var errScan error
 
 		var scanStartString string
-		scanStartString = keyPrefix
+		scanStartString = startKey
 		var scanEndString string
 		scanEndString = ""
 
-		if startKeyType == "string" {
-			scanStartString = startKey
-		}
 		if endKeyType == "string" {
 			scanEndString = endKey
 		}
