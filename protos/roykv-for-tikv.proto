@@ -45,6 +45,7 @@ message ScanRequest {
   string endKeyType = 4;
   string keyPrefix = 5;
   uint64 limit = 6;
+  bool   filter = 7;
 }
 
 message KVEntry {
