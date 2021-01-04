@@ -38,8 +38,6 @@ const (
 	port = ":50055" //fetch grpc port from options
 )
 
-var rawKvClient *rawkv.Client
-
 func getRawKvClient() *rawkv.Client {
 	//todo fetch pd address from options
 	cli, err := rawkv.NewClient(context.TODO(), []string{"47.110.155.53:32814", "47.110.155.53:32816", "47.110.155.53:32818"}, config.Default())
@@ -54,6 +52,9 @@ type tikvServer struct{}
 
 // Del implements roykvtikv.tikvServer
 func (s *tikvServer) Del(ctx context.Context, in *pb.DelRequest) (*pb.DelReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var deleted uint64
 
 	for _, key := range in.Keys {
@@ -70,6 +71,9 @@ func (s *tikvServer) Del(ctx context.Context, in *pb.DelRequest) (*pb.DelReply, 
 
 // Set implements roykvtikv.tikvServer
 func (s *tikvServer) Set(ctx context.Context, in *pb.SetRequest) (*pb.SetReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var result bool
 
 	errPut := rawKvClient.Put(context.TODO(), []byte(in.GetKey()), []byte(in.GetValue()))
@@ -84,6 +88,9 @@ func (s *tikvServer) Set(ctx context.Context, in *pb.SetRequest) (*pb.SetReply, 
 
 // Get implements roykvtikv.tikvServer
 func (s *tikvServer) Get(ctx context.Context, in *pb.GetRequest) (*pb.GetReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var value string
 	value = ""
 
@@ -101,6 +108,9 @@ func (s *tikvServer) Get(ctx context.Context, in *pb.GetRequest) (*pb.GetReply, 
 
 // Exist implements roykvtikv.tikvServer
 func (s *tikvServer) Exist(ctx context.Context, in *pb.ExistRequest) (*pb.ExistReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var existed bool
 
 	byteVal, errGet := rawKvClient.Get(context.TODO(), []byte(in.GetKey()))
@@ -117,6 +127,9 @@ func (s *tikvServer) Exist(ctx context.Context, in *pb.ExistRequest) (*pb.ExistR
 
 // Scan implements roykvtikv.tikvServer
 func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var data []*pb.KVEntry
 	data = []*pb.KVEntry{}
 
@@ -328,6 +341,9 @@ func (s *tikvServer) Scan(ctx context.Context, in *pb.ScanRequest) (*pb.ScanRepl
 
 // MGet implements roykvtikv.tikvServer
 func (s *tikvServer) MGet(ctx context.Context, in *pb.MGetRequest) (*pb.MGetReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var data map[string]string
 	data = make(map[string]string)
 
@@ -353,6 +369,9 @@ func (s *tikvServer) MGet(ctx context.Context, in *pb.MGetRequest) (*pb.MGetRepl
 
 // GetAll implements roykvtikv.tikvServer
 func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetAllReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var data map[string]string
 	data = make(map[string]string)
 
@@ -416,6 +435,9 @@ func (s *tikvServer) GetAll(ctx context.Context, in *pb.GetAllRequest) (*pb.GetA
 
 // Count implements roykvtikv.tikvServer
 func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountReply, error) {
+	rawKvClient := getRawKvClient()
+	defer rawKvClient.Close()
+
 	var startKey string
 	startKey = in.GetStartKey()
 	var startKeyType string
@@ -615,9 +637,6 @@ func (s *tikvServer) Count(ctx context.Context, in *pb.CountRequest) (*pb.CountR
 }
 
 func main() {
-	rawKvClient = getRawKvClient()
-	defer rawKvClient.Close()
-
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
